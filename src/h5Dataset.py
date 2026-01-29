@@ -26,27 +26,32 @@ class h5Dataset(Dataset):
         sample = f[self.keys[index]]
 
         # --- load raw features from sample ---
-        csm = torch.from_numpy(sample["csm"][:]).squeeze() # (N, N), complex128
-        eigmode = torch.from_numpy(sample["eigmode"][:]) # (N, N), complex128
-        loc = torch.from_numpy(sample["loc"][:]) # (Dimensions, Num_Sources), float64
-        source_strength = torch.from_numpy(sample["source_strength_analytic"][:]).squeeze(0) # (Num_Sources,), float64
-        
-        # --- define node features ---
-        coords = torch.from_numpy(sample["cartesian_coordinates"][:]).T # (N, Dimensions), float64 
-        
-        theta = torch.atan2(coords[:, 1], coords[:, 0])
-        cos_theta = torch.cos(theta) # (N,), float64
-        sin_theta = torch.sin(theta) # (N,), float64
+        csm = torch.from_numpy(sample["csm"][:]).squeeze().to(torch.complex64) # (N, N), complex64
+        eigmode = torch.from_numpy(sample["eigmode"][:]).to(torch.complex64) # (N, N), complex64
+        coords = torch.from_numpy(sample["cartesian_coordinates"][:]).T.to(torch.float32) # (N, 3), float32 
+        loc = torch.from_numpy(sample["loc"][:]).to(torch.float32) # (3, nsources), float32
+        source_strength = torch.from_numpy(sample["source_strength_analytic"][:]).squeeze(0).to(torch.float32) # (nsources,), float32
 
-        r = torch.sqrt(coords[:, 0]**2 + coords[:, 1]**2) # (N,), float64
+
+        # --- normalize raw features ---
+        #TODO: check alternative approach normalize autopower by trace and cross spectra by coherence
+        csm = csm / torch.trace(csm).real
+        source_strength = source_strength / source_strength.sum()
+
+        # --- define node features ---        
+        theta = torch.atan2(coords[:, 1], coords[:, 0])
+        cos_theta = torch.cos(theta) # (N,), float32
+        sin_theta = torch.sin(theta) # (N,), float32
+
+        r = torch.sqrt(coords[:, 0]**2 + coords[:, 1]**2) # (N,), float32
         r = r / (r.max() + 1e-8) # normalize radius  
         
-        autopower = torch.diagonal(csm) # (N,), complex128
-        autopower_real = autopower.real
-        autopower_imag = autopower.imag
+        autopower = torch.diagonal(csm) # (N,), complex64
+        autopower_real = autopower.real # (N,), float32
+        autopower_imag = autopower.imag # (N,), float32
 
-        #TODO: implement positional encoding
-
+        #TODO: implement positional encoding (Min-Sang Baek, Joon-Hyuk Chang, and Israel Cohen) 
+ 
         # --- define adjacency--- #
         node_index = torch.arange(coords.shape[0])
         ii, jj = torch.meshgrid(node_index, node_index, indexing="ij") 
@@ -57,20 +62,20 @@ class h5Dataset(Dataset):
         edge_index = torch.stack([src, dst], dim=0) # (2, E)
 
         # --- define edge features ---
-        cross_spectra = csm[mask]  # (E, 1), complex128
-        cross_spectra_real = cross_spectra.real # (E, 1), float64
-        cross_spectra_imag = cross_spectra.imag # (E, 1), float64
+        cross_spectra = csm[mask]  # (E, 1), complex64
+        cross_spectra_real = cross_spectra.real # (E, 1), float32
+        cross_spectra_imag = cross_spectra.imag # (E, 1), float32
 
         dx = (coords[dst, 0] - coords[src, 0]).unsqueeze(-1)
         dy = (coords[dst, 1] - coords[src, 1]).unsqueeze(-1)     
-        dist = torch.sqrt(dx**2 + dy**2 + 1e-8) # (E, 1), float64
+        dist = torch.sqrt(dx**2 + dy**2 + 1e-8) # (E, 1), float32
         
-        unit_direction_x = dx / dist # (E, 1), float64 
-        unit_direction_y = dy / dist # (E, 1), float64
+        unit_direction_x = dx / dist # (E, 1), float32 
+        unit_direction_y = dy / dist # (E, 1), float32
 
-        cos_sim = (cos_theta[src] * cos_theta[dst] + sin_theta[src] * sin_theta[dst]) # (E, 1), float64, computed with trigonometric identity
+        cos_sim = (cos_theta[src] * cos_theta[dst] + sin_theta[src] * sin_theta[dst]) # (E, 1), float32, computed with trigonometric identity
 
-        #TODO: implement positional encoding
+        #TODO: implement directional features (Jingjie Fan, Rongzhi Gu, Yi Luo, and Cong Pang)
 
 
         # --- build feature vectors ---
@@ -80,19 +85,20 @@ class h5Dataset(Dataset):
 
         # --- labels ---
         loc_strongest_source = loc[:,torch.argmax(source_strength)]
-
+        source_strength_strongest = source_strength[torch.argmax(source_strength)] 
 
         # --- build PyG Data ---
         data = Data(
             x=node_feat,                 # (N, F_node)
             edge_index=edge_index,       # (2, E)
             edge_attr=edge_attr,         # (E, F_edge)
+            #TODO: Change to multiple sources and strengths later on
             y=loc_strongest_source,      # label used by training loop
         )
 
         data.eigmode = eigmode
 
-        return data#, eigmode
+        return data
     
 
     #--- utility functions ---
