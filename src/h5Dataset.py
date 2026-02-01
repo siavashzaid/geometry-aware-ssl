@@ -25,9 +25,10 @@ class h5Dataset(Dataset):
         # --- load sample ---
         sample = f[self.keys[index]]
 
-        # --- load raw features from sample ---
+        # --- load and cast raw features from sample ---
         csm = torch.from_numpy(sample["csm"][:]).squeeze().to(torch.complex64) # (N, N), complex64
         eigmode = torch.from_numpy(sample["eigmode"][:]).to(torch.complex64) # (N, N), complex64
+        eigmode = torch.view_as_real(eigmode).to(torch.float32)  
         coords = torch.from_numpy(sample["cartesian_coordinates"][:]).T.to(torch.float32) # (N, 3), float32 
         loc = torch.from_numpy(sample["loc"][:]).to(torch.float32) # (3, nsources), float32
         source_strength = torch.from_numpy(sample["source_strength_analytic"][:]).squeeze(0).to(torch.float32) # (nsources,), float32
@@ -52,22 +53,19 @@ class h5Dataset(Dataset):
 
         #TODO: implement positional encoding (Min-Sang Baek, Joon-Hyuk Chang, and Israel Cohen) 
  
-        # --- define adjacency--- #
-        node_index = torch.arange(coords.shape[0])
-        ii, jj = torch.meshgrid(node_index, node_index, indexing="ij") 
-        mask = (ii != jj) #remove self-loops
-        src = ii[mask].reshape(-1) 
-        dst = jj[mask].reshape(-1)  
+        # --- define adjacency--- 
+        N = coords.size(0)
+        edge_index = self.get_fully_connected_edges(N)   # (2, E), cached, no self-loops
 
-        edge_index = torch.stack([src, dst], dim=0) # (2, E)
+        src, dst = edge_index  # (E,), (E,)
 
         # --- define edge features ---
-        cross_spectra = csm[mask]  # (E, 1), complex64
+        cross_spectra = csm[src, dst]  # (E, 1), complex64
         cross_spectra_real = cross_spectra.real # (E, 1), float32
         cross_spectra_imag = cross_spectra.imag # (E, 1), float32
 
-        dx = (coords[dst, 0] - coords[src, 0]).unsqueeze(-1)
-        dy = (coords[dst, 1] - coords[src, 1]).unsqueeze(-1)     
+        dx = (coords[dst, 0] - coords[src, 0])
+        dy = (coords[dst, 1] - coords[src, 1])   
         dist = torch.sqrt(dx**2 + dy**2 + 1e-8) # (E, 1), float32
         
         unit_direction_x = dx / dist # (E, 1), float32 
@@ -79,13 +77,17 @@ class h5Dataset(Dataset):
 
 
         # --- build feature vectors ---
-
         node_feat = self.build_feature(coords, r, cos_theta, sin_theta, autopower_real, autopower_imag, dim=1) # (N, F_node)
         edge_attr = self.build_feature(cross_spectra_real,cross_spectra_imag, dist, unit_direction_x, unit_direction_y, cos_sim, dim=1)  # (E, F_edge)
 
+        # ---  define eigmode tokens analog to Kujawaski et. al---
+        eigmode = torch.cat([torch.cat([eigmode[..., 0], -eigmode[..., 1]], dim=-1), torch.cat([eigmode[..., 1],  eigmode[..., 0]], dim=-1),],dim=-2,)
+
         # --- labels ---
-        loc_strongest_source = loc[:,torch.argmax(source_strength)]
-        source_strength_strongest = source_strength[torch.argmax(source_strength)] 
+        loc_strongest_source = loc[:,torch.argmax(source_strength)].unsqueeze(0)
+        loc_strongest_source = loc_strongest_source[:2] #x and y coordinates only
+
+        strength_strongest_source = source_strength[torch.argmax(source_strength)] 
 
         # --- build PyG Data ---
         data = Data(
