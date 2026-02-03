@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.utils.rnn import pad_sequence
 
 from modules import MPNNLayer, MPNNTokenizer, SelfAttentionEncoder, PredictionHead
 
@@ -23,16 +24,16 @@ class MPNNTransformerModel(nn.Module):
         edge_in_dim: int,
         mpnn_hidden_dim: int = 128,
         token_dim: int = 128,
-        mpnn_num_layers: int = 2,
+        mpnn_num_layers: int = 1,
         mpnn_dropout: float = 0.0,
         # --- self-attention encoder params --- #
         attn_num_heads: int = 8, # token dim must be divisible by attn_num_heads
-        attn_num_layers: int = 12,
-        attn_dropout: float = 0.1,
+        attn_num_layers: int = 2,
+        attn_dropout: float = 0.0,
         # --- prediction head params --- #
         head_mlp_hidden_dim: int = 512,
         num_output_sources: int = 1,
-        head_dropout: float = 0.1,
+        head_dropout: float = 0.0,
     ):
         super().__init__()
 
@@ -67,16 +68,22 @@ class MPNNTransformerModel(nn.Module):
         x: torch.Tensor,
         edge_index: torch.Tensor,
         edge_attr: torch.Tensor,
+        batch: torch.Tensor = None,
     ) -> torch.Tensor:
         
         # 1) graph -> mic tokens: [N, D]
         tokens = self.tokenizer(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
-        # 2) tokens -> pooled: [D] (or [B, D] if tokens were batched)
-        encoded = self.encoder(tokens)
+        # 2) tokens -> contextualized token: [D] (or [B, D] if tokens were batched)
+        if batch is None:
+            pooled = self.encoder(tokens)
+        # batch nodes for transformer
+        else:    
+            batched_tokens, src_key_padding_mask = self.batch_nodes_for_transformer(tokens, batch_vector=batch)
+            pooled = self.encoder(batched_tokens, src_key_padding_mask=src_key_padding_mask) 
 
         # 3) pooled -> locations: [I, 2] (or [B, I, 2])
-        locations = self.head(encoded)
+        locations = self.head(pooled)
         return locations
 
     @torch.no_grad()
@@ -93,4 +100,38 @@ class MPNNTransformerModel(nn.Module):
         """
         Convenience for PyG Data/Batch objects that expose .x, .edge_index, .edge_attr
         """
-        return self.forward(x=data.x, edge_index=data.edge_index, edge_attr=data.edge_attr)
+        batch = getattr(data, 'batch', None)
+        return self.forward(x=data.x, edge_index=data.edge_index, edge_attr=data.edge_attr, batch=batch)
+
+    @staticmethod 
+    def batch_nodes_for_transformer(node_embeddings, batch_vector):
+        """
+        Convert PyG flat batched node embeddings to dense 3D tensor for Transformer.
+        - PyG batches graphs by concatenating all nodes into a flat [N, D] tensor
+        - Transformers require dense [B, L, D] tensors where L (seq_len) is uniform
+    
+        Expected inputs (PyTorch Geometric style):
+        node_embeddings: [N, hidden_dim]  — flat tensor with all nodes from all graphs
+        batch_vector:    [N]              — graph assignment index (e.g. [0,0,1,1,1,2,...])
+        
+        Output:
+        padded:                  [B, max_nodes, hidden_dim] — dense tensor, zero-padded
+        src_key_padding_mask:    [B, max_nodes]             — True where padded (ignore in attention)
+        
+        """
+        # Split the flat node tensor into a list of per-graph tensors
+        node_lists = []
+        for i in range(batch_vector.max().item() + 1):
+            mask = (batch_vector == i)
+            node_lists.append(node_embeddings[mask])  # (num_nodes_graph_i, hidden_dim)
+        
+        # Pad all graphs to max_nodes in dimension 1 (sequence length)
+        padded = pad_sequence(node_lists, batch_first=True, padding_value=0.0)  # (batch_size, max_num_nodes, hidden_dim)
+        
+        # Create attention mask: True where PADDED (TransformerEncoder ignores True positions)
+        lengths = torch.tensor([n.size(0) for n in node_lists])
+        max_len = padded.size(1)
+        attention_mask = torch.arange(max_len).unsqueeze(0) < lengths.unsqueeze(1)
+        src_key_padding_mask = ~attention_mask  # [batch_size, max_num_nodes]
+        
+        return padded, src_key_padding_mask

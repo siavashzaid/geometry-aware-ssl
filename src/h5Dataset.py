@@ -84,9 +84,9 @@ class h5Dataset(Dataset):
         eigmode = torch.cat([torch.cat([eigmode[..., 0], -eigmode[..., 1]], dim=-1), torch.cat([eigmode[..., 1],  eigmode[..., 0]], dim=-1),],dim=-2,)
 
         # --- labels ---
-        loc_strongest_source = loc[:,torch.argmax(source_strength)].unsqueeze(0)
-        loc_strongest_source = loc_strongest_source[:2] #x and y coordinates only
-
+        loc_strongest_source = loc[:,torch.argmax(source_strength)]
+        loc_strongest_source = loc_strongest_source[:2].unsqueeze(0).unsqueeze(0) # [B,1,2]
+        
         strength_strongest_source = source_strength[torch.argmax(source_strength)] 
 
         # --- build PyG Data ---

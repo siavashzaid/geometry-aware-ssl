@@ -27,13 +27,14 @@ class MPNNLayer(MessagePassing):
             nn.Linear(hidden_dim, hidden_dim),
         )
 
-        self.norm = nn.LayerNorm(hidden_dim) # helps with oversmoothing
+        #self.norm = nn.LayerNorm(hidden_dim) # test later on if layernorm helps
 
     def forward(self, x: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor) -> torch.Tensor:
         # propagate: message passing + aggregation + update
         out = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr)
-        # residual helps with oversmoothing
-        return self.norm(x + out)
+        
+        #return self.norm(x + out) #test later on if layernorm helps
+        return x + out
 
     def message(self, x_i: torch.Tensor, x_j: torch.Tensor, edge_attr: torch.Tensor) -> torch.Tensor:
         # x_i: target node features [E, H]
@@ -107,6 +108,8 @@ class SelfAttentionEncoder(nn.Module):
         super().__init__()
         
         self.embed_dim = embed_dim
+
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))  
         
         # --- Multihead self-attention layer ---
         multihead_self_attention_layer = nn.TransformerEncoderLayer(
@@ -125,7 +128,7 @@ class SelfAttentionEncoder(nn.Module):
             num_layers=num_layers,
         )
         
-    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+    def forward(self, tokens: torch.Tensor, src_key_padding_mask: torch.tensor = None) -> torch.Tensor:
         """
         tokens: [N, embed_dim] or [B, N, embed_dim] microphone embeddings from MPNNTokenizer
         returns: [embed_dim] or [B, embed_dim] encoded features after global pooling
@@ -137,11 +140,13 @@ class SelfAttentionEncoder(nn.Module):
             squeeze_output = True
         
         # --- Multihead self-attention layers ---
-        encoded = self.transformer_encoder(tokens)  # [B, N, D]
+        encoded = self.transformer_encoder(tokens, src_key_padding_mask=src_key_padding_mask)  # [B, N, D]
         
-        # --- Global pooling (mean over all microphone tokens) ---
-        # TODO: try other pooling mechanism f.e. CLI Token
-        pooled = encoded.mean(dim=1)  # [B, D]
+        # --- Global pooling ---
+        #Alternative 1: mean over all microphone tokens
+        #pooled = encoded.mean(dim=1)  # [B, D]
+        #Alternative 2: use CLS token as global representation
+        pooled = encoded[:, 0, :]  # [B, D] use CLS token
         
         # Remove batch dimension if input was unbatched
         if squeeze_output:
