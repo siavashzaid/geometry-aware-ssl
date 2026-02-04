@@ -119,6 +119,9 @@ class MPNNTransformerModel(nn.Module):
         src_key_padding_mask:    [B, max_nodes]             — True where padded (ignore in attention)
         
         """
+        # Get device so that embeddings and masks are on the same device (GPU/CPU)
+        device = node_embeddings.device
+
         # Split the flat node tensor into a list of per-graph tensors
         node_lists = []
         for i in range(batch_vector.max().item() + 1):
@@ -126,12 +129,12 @@ class MPNNTransformerModel(nn.Module):
             node_lists.append(node_embeddings[mask])  # (num_nodes_graph_i, hidden_dim)
         
         # Pad all graphs to max_nodes in dimension 1 (sequence length)
-        padded = pad_sequence(node_lists, batch_first=True, padding_value=0.0)  # (batch_size, max_num_nodes, hidden_dim)
+        padded = pad_sequence(node_lists, batch_first=True, padding_value=0.0).to(device)  # (batch_size, max_num_nodes, hidden_dim)
         
         # Create attention mask: True where PADDED (TransformerEncoder ignores True positions)
-        lengths = torch.tensor([n.size(0) for n in node_lists])
+        lengths = torch.tensor([n.size(0) for n in node_lists], device=device)  # (batch_size,)
         max_len = padded.size(1)
-        attention_mask = torch.arange(max_len).unsqueeze(0) < lengths.unsqueeze(1)
-        src_key_padding_mask = ~attention_mask  # [batch_size, max_num_nodes]
+        src_key_padding_mask = torch.arange(max_len, device=device).unsqueeze(0) < lengths.unsqueeze(1)
+        src_key_padding_mask = ~src_key_padding_mask # [batch_size, max_num_nodes]
         
         return padded, src_key_padding_mask
