@@ -1,0 +1,6 @@
+name: thesis
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+prefix: /home/zaid/.conda/envs/thesis
