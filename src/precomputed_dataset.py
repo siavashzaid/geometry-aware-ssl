@@ -5,7 +5,7 @@ from torch_geometric.utils import dense_to_sparse
 
 import h5py
 
-class h5Dataset(Dataset):
+class precomputedDataset(Dataset):
     def __init__(self, h5_path):
         self.h5_path = h5_path
 
