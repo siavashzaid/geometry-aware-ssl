@@ -139,6 +139,18 @@ class SelfAttentionEncoder(nn.Module):
             tokens = tokens.unsqueeze(0)
             squeeze_output = True
         
+        
+        # --- Add CLS token ---
+        B, N, D = tokens.shape
+
+        cls_token = self.cls_token.expand(B, -1, -1)  # [B, 1, D]
+        tokens = torch.cat((cls_token, tokens), dim=1)  # [B, N+1, D]
+
+        # Adjust src_key_padding_mask for CLS token
+        if src_key_padding_mask is not None:    
+            cls_mask = torch.zeros(B, 1, dtype=torch.bool, device=tokens.device)
+            src_key_padding_mask = torch.cat([cls_mask, src_key_padding_mask], dim=1)
+
         # --- Multihead self-attention layers ---
         encoded = self.transformer_encoder(tokens, src_key_padding_mask=src_key_padding_mask)  # [B, N, D]
         
