@@ -62,6 +62,10 @@ class VariableArrayConfig(DatasetSyntheticConfig):
     # --- Random number generator used for reproducible geometry sampling ---
     generator = Instance(np.random.Generator, args=())
 
+    min_num_mics = Int(1)
+    
+    max_num_mics = Int(10)
+
     def create_micgeom_sampler(self):
         """
         Constructs the microphone geometry sampler using the user-defined position generator.
@@ -79,8 +83,8 @@ class VariableArrayConfig(DatasetSyntheticConfig):
 
             #Variable number of microphones, but currently fixed at 5 for testing. 
             #Adjust min/max as needed.
-            min_num_mics=5,
-            max_num_mics=5,
+            min_num_mics=self.min_num_mics,
+            max_num_mics=self.max_num_mics,
 
             #User-defined microphone position function + RNG.
             mpos_fn=self.mpos_fn,
