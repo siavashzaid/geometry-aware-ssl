@@ -9,6 +9,8 @@ import numpy as np
 from numpy.random import RandomState
 from scipy.stats import norm
 from scipy.spatial.distance import pdist
+from scipy import optimize, special
+from scipy.integrate import quad
 
 class CustomMicGeomSampler(MicGeomSampler):
     """
@@ -32,7 +34,7 @@ class CustomMicGeomSampler(MicGeomSampler):
     # --- Random number generator used for reproducible geometry sampling ---
     generator = Instance(np.random.Generator, args=())
 
-    @cached_property
+    #@cached_property
     def _get_mpos_init(self):
         """
         Generate and cache the initial microphone positions.
@@ -164,3 +166,48 @@ def random_positions(min_num_mics, max_num_mics, generator):
 
     # --- return in AcouPipe-compatible shape (3, N) ---
     return positions.T
+
+
+def VogelHansen(min_num_mics, max_num_mics, generator):
+
+    #uniformly distribute H and M
+    M = generator.integers(min_num_mics, max_num_mics + 1) 
+    H = generator.uniform(-1,4)
+
+    r_max=0.5
+    V=5
+
+    def F(r):
+        if H<0:
+            return 1/special.iv(0,np.pi*H*np.sqrt(1+0j-r*r))
+        
+        return special.iv(0,np.pi*H*np.sqrt(1+0j-r*r))
+    
+    def Freal(r):
+        return F(r).real
+    
+    FI = quad(Freal,0,1)[0]  
+
+    def Froot(r):
+        A = FI/(M*F(r))
+        r0 = np.sqrt(np.cumsum(A)).real
+        return (r-r0)
+    
+    rz = optimize.leastsq(Froot,np.zeros(M)/M+0.01)
+    rz = rz[0]
+    rm = rz * r_max/rz.max() 
+    n = np.arange(M)+1
+    theta = np.pi*n*(1+np.sqrt(V))
+    xyz = np.zeros((3,M),dtype=np.double)
+    xyz[0] = rm*np.cos(theta)
+    xyz[1] = rm*np.sin(theta)
+
+    # Centering
+    xyz[0] -= np.mean(xyz[0])
+    xyz[1] -= np.mean(xyz[1])
+
+    #Normalizing 
+    aperture = np.max(pdist(xyz[:2].T)) #Aperture in acoupipe is defined as the maximum pairwise distance between microphones
+    xyz[:2] /= aperture
+
+    return xyz
