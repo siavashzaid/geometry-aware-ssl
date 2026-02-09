@@ -95,7 +95,6 @@ class MPNNTokenizer(nn.Module):
 class SelfAttentionEncoder(nn.Module):
     """
     Transformer encoder following ViT-Base architecture:
-    - 12 layers of multi-head self-attention (8 heads, D=128)
     - Takes microphone embeddings and outputs pooled vector for MLP head
     """
     def __init__(
@@ -104,11 +103,13 @@ class SelfAttentionEncoder(nn.Module):
         num_heads: int = 8, # embed_dim must be divisible by num_heads 
         num_layers: int = 12,
         dropout: float = 0.1,
+        pooling_strategy: str = "cls_token"
     ):
         super().__init__()
         
         self.embed_dim = embed_dim
 
+        self.pooling_strategy = pooling_strategy
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))  
         
         # --- Multihead self-attention layer ---
@@ -128,37 +129,43 @@ class SelfAttentionEncoder(nn.Module):
             num_layers=num_layers,
         )
         
-    def forward(self, tokens: torch.Tensor, src_key_padding_mask: torch.tensor = None) -> torch.Tensor:
+    def forward(self, tokens: torch.Tensor, src_key_padding_mask: torch.tensor = None, pooling_strategy: str = None,) -> torch.Tensor:
         """
         tokens: [N, embed_dim] or [B, N, embed_dim] microphone embeddings from MPNNTokenizer
         returns: [embed_dim] or [B, embed_dim] encoded features after global pooling
         """
+        # default to module setting
+        if pooling_strategy is None:
+            pooling_strategy = self.pooling_strategy
+
         # Adds batch dimension if needed: [N, D] -> [1, N, D]
         squeeze_output = False
         if tokens.dim() == 2:
             tokens = tokens.unsqueeze(0)
             squeeze_output = True
-        
-        
+
         # --- Add CLS token ---
-        B, N, D = tokens.shape
+        if pooling_strategy == "cls_token":
+            B, N, D = tokens.shape
 
-        cls_token = self.cls_token.expand(B, -1, -1)  # [B, 1, D]
-        tokens = torch.cat((cls_token, tokens), dim=1)  # [B, N+1, D]
+            cls_token = self.cls_token.expand(B, -1, -1)  # [B, 1, D]
+            tokens = torch.cat((cls_token, tokens), dim=1)  # [B, N+1, D]
 
-        # Adjust src_key_padding_mask for CLS token
-        if src_key_padding_mask is not None:    
-            cls_mask = torch.zeros(B, 1, dtype=torch.bool, device=tokens.device)
-            src_key_padding_mask = torch.cat([cls_mask, src_key_padding_mask], dim=1)
+            # Adjust src_key_padding_mask for CLS token
+            if src_key_padding_mask is not None:    
+                cls_mask = torch.zeros(B, 1, dtype=torch.bool, device=tokens.device)
+                src_key_padding_mask = torch.cat([cls_mask, src_key_padding_mask], dim=1)
 
         # --- Multihead self-attention layers ---
         encoded = self.transformer_encoder(tokens, src_key_padding_mask=src_key_padding_mask)  # [B, N, D]
         
         # --- Global pooling ---
-        #Alternative 1: mean over all microphone tokens
-        #pooled = encoded.mean(dim=1)  # [B, D]
-        #Alternative 2: use CLS token as global representation
-        pooled = encoded[:, 0, :]  # [B, D] use CLS token
+        if pooling_strategy == "mean_pooling":
+            pooled = encoded.mean(dim=1)  # [B, D]
+        elif pooling_strategy == "cls_token":
+            pooled = encoded[:, 0, :]  # [B, D] use CLS token
+        else:
+            raise ValueError(f"Invalid pooling strategy: {pooling_strategy}")
         
         # Remove batch dimension if input was unbatched
         if squeeze_output:

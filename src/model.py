@@ -24,12 +24,13 @@ class MPNNTransformerModel(nn.Module):
         edge_in_dim: int,
         mpnn_hidden_dim: int = 128,
         token_dim: int = 128,
-        mpnn_num_layers: int = 1,
+        mpnn_num_layers: int = 100,
         mpnn_dropout: float = 0.0,
         # --- self-attention encoder params --- #
         attn_num_heads: int = 8, # token dim must be divisible by attn_num_heads
         attn_num_layers: int = 2,
         attn_dropout: float = 0.0,
+        pooling_strategy: str = "cls_token",
         # --- prediction head params --- #
         head_mlp_hidden_dim: int = 512,
         num_output_sources: int = 1,
@@ -53,6 +54,7 @@ class MPNNTransformerModel(nn.Module):
             num_heads=attn_num_heads,
             num_layers=attn_num_layers,
             dropout=attn_dropout,
+            pooling_strategy=pooling_strategy,
         )
 
         # --- prediction head (pooled embedding -> outputs) ---
@@ -81,7 +83,6 @@ class MPNNTransformerModel(nn.Module):
         else:    
             batched_tokens, src_key_padding_mask = self.batch_nodes_for_transformer(tokens, batch_vector=batch)
             pooled = self.encoder(batched_tokens, src_key_padding_mask=src_key_padding_mask) 
-
         # 3) pooled -> locations: [I, 2] (or [B, I, 2])
         locations = self.head(pooled)
         return locations
