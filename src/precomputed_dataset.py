@@ -38,10 +38,14 @@ class precomputedDataset(Dataset):
 
             # --- normalize raw features ---
             #TODO: check alternative approach normalize autopower by trace and cross spectra by coherence
-            csm = csm / torch.trace(csm).real
+            #csm = csm / torch.trace(csm).real
             source_strength = source_strength / source_strength.sum()
 
-            # --- define node features ---        
+            # --- define node features --- 
+            x = coords[:, 0] # (N,), float32
+            y = coords[:, 1] # (N,), float32
+            z = coords[:, 2] # (N,), float32
+
             theta = torch.atan2(coords[:, 1], coords[:, 0])
             cos_theta = torch.cos(theta) # (N,), float32
             sin_theta = torch.sin(theta) # (N,), float32
@@ -49,10 +53,8 @@ class precomputedDataset(Dataset):
             r = torch.sqrt(coords[:, 0]**2 + coords[:, 1]**2) # (N,), float32
             r = r / (r.max() + 1e-8) # normalize radius  
             
-            autopower = torch.diagonal(csm) # (N,), complex64
-            autopower_real = autopower.real # (N,), float32
-            autopower_imag = autopower.imag # (N,), float32
-
+            autopower = torch.diagonal(csm, dim1=-2, dim2=-1).real # (N,), float32
+            
             #TODO: implement positional encoding (Min-Sang Baek, Joon-Hyuk Chang, and Israel Cohen) 
     
             # --- define adjacency--- 
@@ -79,7 +81,7 @@ class precomputedDataset(Dataset):
 
 
             # --- build feature vectors ---
-            node_feat = self.build_feature(coords, r, cos_theta, sin_theta, autopower_real, autopower_imag, dim=1) # (N, F_node)
+            node_feat = self.build_feature(x, y, r, cos_theta, sin_theta, autopower, dim=1) # (N, F_node)
             edge_attr = self.build_feature(cross_spectra_real,cross_spectra_imag, dist, unit_direction_x, unit_direction_y, cos_sim, dim=1)  # (E, F_edge)
 
             # ---  define eigmode tokens analog to Kujawaski et. al---
