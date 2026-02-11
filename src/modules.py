@@ -9,10 +9,11 @@ class MPNNLayer(MessagePassing):
 
     Input/Output node dim stays constant: hidden_dim -> hidden_dim
     """
-    def __init__(self, hidden_dim: int, edge_dim: int, dropout: float = 0.0):
+    def __init__(self, hidden_dim: int, edge_dim: int, dropout: float = 0.0, layer_norm: bool = False):
         
         super().__init__(aggr="mean") # fully connected graph, so messages dont blow up with "add" aggregation
 
+        # --- Message MLP --- #
         self.msg_mlp = nn.Sequential(
             nn.Linear(2 * hidden_dim + edge_dim, hidden_dim),
             nn.ReLU(),
@@ -20,6 +21,7 @@ class MPNNLayer(MessagePassing):
             nn.Linear(hidden_dim, hidden_dim),
         )
 
+        # --- Update MLP --- #
         self.upd_mlp = nn.Sequential(
             nn.Linear(hidden_dim + hidden_dim, hidden_dim),
             nn.ReLU(),
@@ -27,14 +29,14 @@ class MPNNLayer(MessagePassing):
             nn.Linear(hidden_dim, hidden_dim),
         )
 
-        #self.norm = nn.LayerNorm(hidden_dim) # test later on if layernorm helps
+        # --- LayerNorm for stability and to mitigate oversmoothing in fully-connected graphs ---
+        self.norm = nn.LayerNorm(hidden_dim) if layer_norm else nn.Identity()
 
     def forward(self, x: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor) -> torch.Tensor:
         # propagate: message passing + aggregation + update
         out = self.propagate(edge_index=edge_index, x=x, edge_attr=edge_attr)
         
-        #return self.norm(x + out) #test later on if layernorm helps
-        return x + out
+        return self.norm(x + out)
 
     def message(self, x_i: torch.Tensor, x_j: torch.Tensor, edge_attr: torch.Tensor) -> torch.Tensor:
         # x_i: target node features [E, H]
@@ -61,6 +63,7 @@ class MPNNTokenizer(nn.Module):
         out_dim: int = 128,
         num_layers: int = 2,
         dropout: float = 0.0,
+        mp_layer_norm: bool = False, #layer norm toggle for message passing layers
     ):
         super().__init__()
 
@@ -73,7 +76,7 @@ class MPNNTokenizer(nn.Module):
 
         # --- multiple MPNN layers
         self.layers = nn.ModuleList([
-            MPNNLayer(hidden_dim=hidden_dim, edge_dim=edge_in_dim, dropout=dropout)
+            MPNNLayer(hidden_dim=hidden_dim, edge_dim=edge_in_dim, dropout=dropout, layer_norm=mp_layer_norm)
             for _ in range(num_layers)
         ])
 

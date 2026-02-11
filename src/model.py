@@ -24,7 +24,8 @@ class MPNNTransformerModel(nn.Module):
         edge_in_dim: int,
         mpnn_hidden_dim: int = 128,
         token_dim: int = 128,
-        mpnn_num_layers: int = 100,
+        mpnn_num_layers: int = 2,
+        mp_layer_norm: bool = False,
         mpnn_dropout: float = 0.0,
         # --- self-attention encoder params --- #
         attn_num_heads: int = 8, # token dim must be divisible by attn_num_heads
@@ -45,7 +46,8 @@ class MPNNTransformerModel(nn.Module):
             hidden_dim=mpnn_hidden_dim,
             out_dim=token_dim,
             num_layers=mpnn_num_layers,
-            dropout=mpnn_dropout,
+            mp_layer_norm=mp_layer_norm,
+            dropout=mpnn_dropout
         )
 
         # --- self-attention encoder (tokens -> pooled embedding) ---
