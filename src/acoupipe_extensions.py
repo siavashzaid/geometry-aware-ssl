@@ -34,16 +34,23 @@ class CustomMicGeomSampler(MicGeomSampler):
     # --- Random number generator used for reproducible geometry sampling ---
     generator = Instance(np.random.Generator, args=())
 
-    #@cached_property
     def _get_mpos_init(self):
         """
         Generate and cache the initial microphone positions.
         """
-        return self.mpos_fn(
-            self.min_num_mics,
-            self.max_num_mics,
-            self.generator
-        )
+        if self._mpos_init is None:
+            self._mpos_init = self.mpos_fn(
+                self.min_num_mics,
+                self.max_num_mics,
+                self.generator
+            )
+        return self._mpos_init.copy()
+
+    def sample(self):
+        # Reset cached geometry so mpos_fn generates a new one
+        self._mpos_init = None
+        super().sample()
+
 
 
 class VariableArrayConfig(DatasetSyntheticConfig):
