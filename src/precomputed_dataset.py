@@ -102,7 +102,7 @@ class precomputedDataset(Dataset):
                 y=loc_strongest_source,      # label used by training loop
             )
 
-            data.eigmode = eigmode
+            #data.eigmode = eigmode
 
             return data
     
