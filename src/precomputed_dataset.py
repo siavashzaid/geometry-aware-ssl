@@ -19,9 +19,6 @@ class precomputedDataset(Dataset):
         return len(self.keys)
     
     def __getitem__(self, index):
-        # --- open file ---
-        #f = self._get_file()
-
         with h5py.File(self.h5_path, "r") as f:
                 
             # --- load sample ---
@@ -34,7 +31,6 @@ class precomputedDataset(Dataset):
             coords = torch.from_numpy(sample["cartesian_coordinates"][:]).T.to(torch.float32) # (N, 3), float32 
             loc = torch.from_numpy(sample["loc"][:]).to(torch.float32) # (3, nsources), float32
             source_strength = torch.from_numpy(sample["source_strength_analytic"][:]).squeeze(0).to(torch.float32) # (nsources,), float32
-
 
             # --- normalize raw features ---
             #TODO: check alternative approach normalize autopower by trace and cross spectra by coherence
@@ -55,8 +51,6 @@ class precomputedDataset(Dataset):
             
             autopower = torch.diagonal(csm, dim1=-2, dim2=-1).real # (N,), float32
             
-            #TODO: implement positional encoding (Min-Sang Baek, Joon-Hyuk Chang, and Israel Cohen) 
-    
             # --- define adjacency--- 
             N = coords.size(0)
             edge_index = self.get_fully_connected_edges(N)   # (2, E), cached, no self-loops
@@ -77,9 +71,6 @@ class precomputedDataset(Dataset):
 
             cos_sim = (cos_theta[src] * cos_theta[dst] + sin_theta[src] * sin_theta[dst]) # (E, 1), float32, computed with trigonometric identity
 
-            #TODO: implement directional features (Jingjie Fan, Rongzhi Gu, Yi Luo, and Cong Pang)
-
-
             # --- build feature vectors ---
             node_feat = self.build_feature(x, y, r, cos_theta, sin_theta, autopower, dim=1) # (N, F_node)
             edge_attr = self.build_feature(cross_spectra_real,cross_spectra_imag, dist, unit_direction_x, unit_direction_y, cos_sim, dim=1)  # (E, F_edge)
@@ -91,7 +82,7 @@ class precomputedDataset(Dataset):
             loc_strongest_source = loc[:,torch.argmax(source_strength)]
             loc_strongest_source = loc_strongest_source[:2].unsqueeze(0).unsqueeze(0) # [B,1,2]
             
-            strength_strongest_source = source_strength[torch.argmax(source_strength)] 
+            strength_strongest_source = source_strength[torch.argmax(source_strength)].unsqueeze(0).unsqueeze(0) # [B,1] 
 
             # --- build PyG Data ---
             data = Data(
@@ -102,7 +93,8 @@ class precomputedDataset(Dataset):
                 y=loc_strongest_source,      # label used by training loop
             )
 
-            #data.eigmode = eigmode
+            data.strength = strength_strongest_source
+            #data.eigmode = eigmode #turn of for PyG Data compatibility, can be used for future experiments with eigmode tokens
 
             return data
     

@@ -86,8 +86,8 @@ class MPNNTransformerModel(nn.Module):
             batched_tokens, src_key_padding_mask = self.batch_nodes_for_transformer(tokens, batch_vector=batch)
             pooled = self.encoder(batched_tokens, src_key_padding_mask=src_key_padding_mask) 
         # 3) pooled -> locations: [I, 2] (or [B, I, 2])
-        locations = self.head(pooled)
-        return locations
+        locations, strengths = self.head(pooled)
+        return locations, strengths
 
     @torch.no_grad()
     def predict(

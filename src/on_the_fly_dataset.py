@@ -144,6 +144,7 @@ class OnTheFlyDataset(IterableDataset):
         # --- labels ---
         idx = torch.argmax(source_strength) # strongest source index
         y = loc[:, idx][:2].unsqueeze(0).unsqueeze(0)  # [B,1,2]
+        strength = source_strength[idx].unsqueeze(0).unsqueeze(0) # [B, 1]
 
         # --- build PyG Data object ---
         data = Data(
@@ -152,7 +153,8 @@ class OnTheFlyDataset(IterableDataset):
             edge_attr=edge_attr, 
             y=y)
         
-        data.eigmode = eigmode
+        data.strength = strength
+        #data.eigmode = eigmode
 
         return data
 

@@ -186,29 +186,37 @@ class PredictionHead(nn.Module):
         self,
         embed_dim: int = 128,
         mlp_hidden_dim: int = 512,
-        num_output_sources: int = 1,  # I = 1 source component
+        num_output_sources: int = 1,  
         dropout: float = 0.1,
     ):
         super().__init__()
-        
         self.num_output_sources = num_output_sources
         
-        # --- Two-layer MLP with 512 neurons each ---
-        self.mlp = nn.Sequential(
+
+        # --- Shared first layer ---
+        self.shared = nn.Sequential(
             nn.Linear(embed_dim, mlp_hidden_dim),
             nn.GELU(),
             nn.Dropout(dropout),
+        )
+
+        # --- Location Head --- #
+        self.location_head = nn.Sequential(
             nn.Linear(mlp_hidden_dim, mlp_hidden_dim),
             nn.GELU(),
             nn.Dropout(dropout),
+            nn.Linear(mlp_hidden_dim, num_output_sources * 2),
         )
-        
-        # --- Source location head (2D coordinates per source) ---
-        self.location_head = nn.Linear(mlp_hidden_dim, num_output_sources * 2)
-        
-        # --- Source strength head (normalized via softmax) ---
-        #self.strength_head = nn.Linear(mlp_hidden_dim, num_output_sources)
-        
+
+        # --- Strength Head --- #
+        self.strength_head = nn.Sequential(
+            nn.Linear(mlp_hidden_dim, mlp_hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(mlp_hidden_dim, num_output_sources),
+            nn.Sigmoid()
+        )
+
     def forward(self, encoded_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         encoded_features: [embed_dim] or [B, embed_dim] from TransformerEncoder
@@ -220,31 +228,27 @@ class PredictionHead(nn.Module):
         strengths: [num_output_sources] or [B, num_output_sources]
                    normalized source strengths (sum to 1)
         """
-        # Handle both batched and unbatched input
+    
+        # MLP expects Batch as first dimension, this handles unbatched data
         squeeze_output = False
         if encoded_features.dim() == 1:
             encoded_features = encoded_features.unsqueeze(0)
             squeeze_output = True
         
-        # --- MLP processing ---
-        features = self.mlp(encoded_features)  # [B, mlp_hidden_dim]
-        
-        # --- LOCATION HEAD OUTPUT ---
-        # Raw output is [B, num_output_sources * 2]
-        locations = self.location_head(features)  # [B, I * 2]
-        # Reshape to [B, I, 2] where each source has (x, y) coordinates
-        locations = locations.view(-1, self.num_output_sources, 2)  # [B, I, 2]
-        
-        # --- STRENGTH HEAD OUTPUT ---
-        # Raw output is [B, num_output_sources]
-        #strengths = self.strength_head(features)  # [B, I]
-        # Apply softmax to normalize strengths (they sum to 1)
-        #strengths = torch.softmax(strengths, dim=-1)  # [B, I]
-        
-        # Remove batch dimension if input was unbatched
+        # --- shared layer --- #
+        features = self.shared(encoded_features)
+
+        # --- location head --- #
+        locations = self.location_head(features)
+        locations = locations.view(-1, self.num_output_sources, 2) # [B, num_sources, 2]
+
+        # --- strength head --- #
+        strengths = self.strength_head(features) # [B, I]
+
+        # Removes the false Batch dimension if needed
         if squeeze_output:
-            locations = locations.squeeze(0)  # [I, 2]
-            #strengths = strengths.squeeze(0)  # [I]
+            locations = locations.squeeze(0)
+            strengths = strengths.squeeze(0)
         
-        return locations# , strengths
+        return locations, strengths
 
