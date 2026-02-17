@@ -33,10 +33,12 @@ class precomputedDataset(Dataset):
             source_strength = torch.from_numpy(sample["source_strength_analytic"][:]).squeeze(0).to(torch.float32) # (nsources,), float32
 
             # --- normalize raw features ---
-            #TODO: check alternative approach normalize autopower by trace and cross spectra by coherence
-            #csm = csm / torch.trace(csm).real
-            source_strength = source_strength / source_strength.sum()
+            dists_to_center = torch.norm(coords[:, :2], dim=1) # find microphones closest to center for normalization
+            ref_idx = torch.argmin(dists_to_center)
+            csm = csm / csm[ref_idx, ref_idx].real
 
+            source_strength = source_strength / source_strength.sum()
+        
             # --- define node features --- 
             x = coords[:, 0] # (N,), float32
             y = coords[:, 1] # (N,), float32
