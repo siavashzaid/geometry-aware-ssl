@@ -59,7 +59,7 @@ def run_step3a():
     # Print the locked Tier 1 architecture for reference.
     print(f"Locked Tier 1 architecture (from Step 1 Trial {step2_output['step1_trial']}):")
     for key in ["lr", "mpnn_num_layers", "attn_num_layers", "mpnn_hidden_dim",
-                 "token_dim", "attn_num_heads", "lambda_str", "pooling_strategy"]:
+                 "token_dim", "attn_num_heads", "pooling_strategy"]:
         print(f"  {key}: {base_config[key]}")
     print()
 

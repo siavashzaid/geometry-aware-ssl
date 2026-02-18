@@ -51,8 +51,6 @@ class CustomMicGeomSampler(MicGeomSampler):
         self._mpos_init = None
         super().sample()
 
-
-
 class VariableArrayConfig(DatasetSyntheticConfig):
     """
     Custom DatasetSynthetic configuration for experiments with variable microphone arrays.
@@ -128,7 +126,6 @@ class VariableArrayConfig(DatasetSyntheticConfig):
             shape=(3, None),
         )
 
-
 def random_positions(min_num_mics, max_num_mics, generator):
     """
     Generate a random centered planar microphone array with normalized aperture.
@@ -173,7 +170,6 @@ def random_positions(min_num_mics, max_num_mics, generator):
 
     # --- return in AcouPipe-compatible shape (3, N) ---
     return positions.T
-
 
 def VogelHansen(min_num_mics, max_num_mics, generator):
 

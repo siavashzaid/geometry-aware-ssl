@@ -64,7 +64,7 @@ def run_step2():
 
         # Tier 1: from the saved JSON
         for key in ["lr", "mpnn_num_layers", "attn_num_layers", "mpnn_hidden_dim",
-                     "token_dim", "attn_num_heads", "lambda_str", "pooling_strategy"]:
+                     "token_dim", "attn_num_heads", "pooling_strategy"]:
             config[key] = tier1_params[key]
 
         # Tier 2: still at defaults (not searched until Step 3a)
