@@ -109,15 +109,10 @@ def train_fn(config):
     )
 
     if config['scheduler']:
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode=config['scheduler_mode'],
-            factor=config['scheduler_factor'],          
-            patience=config['scheduler_patience'],       
-            threshold=config['scheduler_threshold'],    
-            threshold_mode=config['scheduler_threshold_mode'],
-            cooldown=config['scheduler_cooldown'],        
-            min_lr=config['scheduler_min_lr'],
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, 
+            T_max=config["epochs"], 
+            eta_min=config["scheduler_min_lr"]
         )
 
     # --- Early Stopping Parameters ---
