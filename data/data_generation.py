@@ -13,7 +13,7 @@ def main():
     d1 = DatasetSynthetic(config=config)
 
     # --- generate and save data ---
-    d1.save_h5(features=["csm", "cartesian_coordinates", "eigmode", "loc", 'source_strength_analytic' ], f=2500, num=0, split="training", size=62500, name="step_2_3.h5")
+    d1.save_h5(features=["csm", "cartesian_coordinates", "eigmode", "loc", 'source_strength_analytic' ], f=2500, num=0, split="training", size=50000, name="step_2.h5")
     
 if __name__ == "__main__": 
     main()

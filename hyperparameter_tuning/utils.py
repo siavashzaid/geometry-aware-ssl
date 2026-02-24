@@ -5,6 +5,7 @@ from modules import MPNNLayer, MPNNTokenizer, SelfAttentionEncoder, PredictionHe
 from model import MPNNTransformerModel
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.optim as optim
 import torch.nn.functional as F

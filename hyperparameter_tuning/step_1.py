@@ -10,7 +10,6 @@ import pandas as pd
 # --- Search parameters --- #
 search_space = {
     # --- Tier 1 params --- #
-    "lr": tune.loguniform(1e-4, 1.5e-3),
     'mpnn_hidden_dim': tune.choice([64, 128, 256]),
     'mpnn_num_layers': tune.choice([1, 2, 3, 4]),
     'attn_num_heads': tune.choice([2, 4, 8]), #embed_dim must be divisible by num_heads, so if we stay at 128 token dim, 2n
@@ -18,7 +17,11 @@ search_space = {
     'token_dim': tune.choice([64, 128, 256]),
     'pooling_strategy': tune.choice(['cls_token', 'mean_pooling']),
 
+    # --- Learning rate --- #
+    "lr" : 1e4, 
+
     # --- Tier 2 regularization params --- #
+
     "weight_decay": 0.0,
     "dropout": 0.1,
     "mp_layer_norm": False,
@@ -91,9 +94,9 @@ if __name__ == "__main__":
 
     # --- save full history --- #
     full_df = pd.concat(all_histories, ignore_index=True)
-    os.makedirs("results", exist_ok=True) #check if results directory exists, if not create it
-    full_df.to_csv("results/tune_full_history.csv", index=False)
+    os.makedirs("/mnt/data/zaid/projects/results/step_1", exist_ok=True) #check if results directory exists, if not create it
+    full_df.to_csv("/mnt/data/zaid/projects/results/step_1/tune_full_history.csv", index=False)
 
     # --- save last results --- #
     df = results.get_dataframe()
-    df.to_csv("results/tune_results.csv", index=False)
+    df.to_csv("/mnt/data/zaid/projects/results/step_1/tune_results.csv", index=False)
