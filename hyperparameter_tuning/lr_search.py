@@ -1,4 +1,4 @@
-from utils import train_fn
+from .utils import ray_train
 from ray import tune
 import os
 import pandas as pd
@@ -19,7 +19,7 @@ base_config = {
     "dropout":           0.1,
     "mp_layer_norm":     False,
     # --- Training settings --- #
-    "epochs":                  20, #enough to see convergence behavior
+    "epochs":                  50, #enough to see convergence behavior
     "early_stop_patience":     25, #no early stopping
     "early_stop_min_delta":    1e-5,
     # --- Fixed hyperparameters --- #
@@ -42,7 +42,7 @@ base_config = {
 
 # --- Tuner --- #
 tuner = tune.Tuner(
-    tune.with_resources(train_fn, {"gpu": 1, "cpu": 5}),
+    tune.with_resources(ray_train, {"gpu": 1, "cpu": 5}),
     param_space=base_config,
     tune_config=tune.TuneConfig(
         metric="best_val_loss",
@@ -52,7 +52,7 @@ tuner = tune.Tuner(
 )
 
 if __name__ == "__main__":
-    os.makedirs("/mnt/data/zaid/projects/results", exist_ok=True)
+    os.makedirs("/mnt/data/zaid/projects/results/lr_search", exist_ok=True)
 
     results = tuner.fit()
 
@@ -61,19 +61,19 @@ if __name__ == "__main__":
         if result.metrics_dataframe is None:
             continue
         history = result.metrics_dataframe
-        trial_id = "_".join(os.path.basename(result.path).split("_")[1:3])
+        trial_id = os.path.basename(result.path)
         history["trial_id"] = trial_id if trial_id else os.path.basename(result.path)
         for k, v in result.config.items():
             history[f"config/{k}"] = v
         all_histories.append(history)
 
     full_df = pd.concat(all_histories, ignore_index=True)
-    full_df.to_csv("/mnt/data/zaid/projects/results/lr_search_full_history.csv", index=False)
+    full_df.to_csv("/mnt/data/zaid/projects/results/lr_search/lr_search_full_history.csv", index=False)
 
     # --- Save results --- #
     df = results.get_dataframe()
     df = df.sort_values("best_val_loss", ascending=True)
-    df.to_csv("/mnt/data/zaid/projects/results/lr_search_results.csv", index=False)
+    df.to_csv("/mnt/data/zaid/projects/results/lr_search/lr_search_results.csv", index=False)
 
     print("\nLR search complete.")
     print(df[["config/lr", "best_val_loss", "val_loss"]].to_string(index=False))

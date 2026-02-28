@@ -1,4 +1,4 @@
-from utils import train_fn
+from .utils import ray_train
 from ray import tune
 import os
 import pandas as pd
@@ -6,8 +6,9 @@ import pandas as pd
 # --- Search space --- #
 search_space = {
     # --- Regularization grid search --- # TODO Set this
+    "lr":            tune.grid_search([5e-4, 3e-4, 1e-4]),
     "weight_decay":  tune.grid_search([0.0, 1e-4, 1e-3]),
-    "dropout":       tune.grid_search([0.0, 0.05, 0.1]), 
+    "dropout":       tune.grid_search([0.0, 0.1, 0.2]), 
     "mp_layer_norm": tune.grid_search([True, False]),
     # --- Best Tier 1 settings --- #
     "mpnn_hidden_dim":  64,
@@ -18,7 +19,6 @@ search_space = {
     "pooling_strategy": "mean_pooling",
     # --- Training settings --- #
     "epochs":                  120,
-    "lr":                      3e-4, #TODO Set this
     "early_stop_patience":     40,
     "early_stop_min_delta":    1e-5,
     # --- Fixed hyperparameters --- #
@@ -41,7 +41,7 @@ search_space = {
 
 # --- Tuner --- #
 tuner = tune.Tuner(
-    tune.with_resources(train_fn, {"gpu": 1, "cpu": 5}),
+    tune.with_resources(ray_train, {"gpu": 1, "cpu": 5}),
     param_space=search_space,
     tune_config=tune.TuneConfig(
         metric="best_val_loss",
@@ -61,17 +61,17 @@ if __name__ == "__main__":
         if result.metrics_dataframe is None:
             continue
         history = result.metrics_dataframe
-        trial_id = "_".join(os.path.basename(result.path).split("_")[1:3])
+        trial_id = os.path.basename(result.path)
         history["trial_id"] = trial_id if trial_id else os.path.basename(result.path)
         for k, v in result.config.items():
             history[f"config/{k}"] = v
         all_histories.append(history)
     full_df = pd.concat(all_histories, ignore_index=True)
-    full_df.to_csv("/mnt/data/zaid/projects/results/step_2/step2_full_history.csv", index=False)
+    full_df.to_csv("/mnt/data/zaid/projects/results/step_2/full_history.csv", index=False)
     
     df = results.get_dataframe()
     df = df.sort_values("best_val_loss", ascending=True)
-    df.to_csv("/mnt/data/zaid/projects/results/step_2/step2_results.csv", index=False)
+    df.to_csv("/mnt/data/zaid/projects/results/step_2/results.csv", index=False)
 
     print("\nStep 2 complete. Results saved to step2_results.csv")
     print(df[["config/weight_decay", "config/dropout", "config/mp_layer_norm", "best_val_loss"]].to_string(index=False))

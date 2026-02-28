@@ -1,31 +1,25 @@
-from utils import build_model, evaluate_fn, train_fn
+from .utils import ray_train
 
-from ray import tune, train
+from ray import tune
 from ray.tune.schedulers import ASHAScheduler
 from ray.tune.search.hyperopt import HyperOptSearch
-
 import os
 import pandas as pd
 
 # --- Search parameters --- #
 search_space = {
     # --- Tier 1 params --- #
+    "lr": tune.loguniform(1e-4, 1.5e-3),
     'mpnn_hidden_dim': tune.choice([64, 128, 256]),
     'mpnn_num_layers': tune.choice([1, 2, 3, 4]),
     'attn_num_heads': tune.choice([2, 4, 8]), #embed_dim must be divisible by num_heads, so if we stay at 128 token dim, 2n
     'attn_num_layers': tune.choice([2, 4, 6, 8]),
     'token_dim': tune.choice([64, 128, 256]),
     'pooling_strategy': tune.choice(['cls_token', 'mean_pooling']),
-
-    # --- Learning rate --- #
-    "lr" : 1e4, 
-
     # --- Tier 2 regularization params --- #
-
     "weight_decay": 0.0,
     "dropout": 0.1,
     "mp_layer_norm": False,
-    
     # --- FIXED PARAMS (not searched in any step) ---
     # --- Tuning Settings --- #
     "epochs": 120,                             
@@ -60,7 +54,7 @@ search_alg = HyperOptSearch(
 
 # --- Tuner Setup --- #
 tuner = tune.Tuner(
-        tune.with_resources(train_fn, {"gpu": 1, "cpu": 5}), #4 worker threads + 1 main thread
+        tune.with_resources(ray_train, {"gpu": 1, "cpu": 5}), #4 worker threads + 1 main thread
         param_space=search_space,
         tune_config=tune.TuneConfig(
             metric="best_val_loss",                                #Best validation loss across all epochs for each trial
