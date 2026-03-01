@@ -3,7 +3,7 @@ from configs.final_config import final_config
 
 import os
 
-OUTPUT_DIR = '/mnt/data/zaid/projects/results/training'
+OUTPUT_DIR = '/mnt/data/zaid/projects/results/training_single_geo'
 CHECKPOINT_PATH = os.path.join(OUTPUT_DIR, 'best_model.pt')
 
 if __name__ == "__main__":

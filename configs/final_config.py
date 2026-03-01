@@ -4,8 +4,8 @@ final_config = {
     "num_output_sources":      1,
     "node_in_dim":             6,
     "edge_in_dim":             6,
-    "train_path":              "/mnt/data/zaid/projects/simulated_data/multigeometry_train.h5",
-    "val_path":                "/mnt/data/zaid/projects/simulated_data/validation.h5",
+    "train_path":              "/mnt/data/zaid/projects/simulated_data/single_geometry_train.h5",
+    "val_path":                "/mnt/data/zaid/projects/simulated_data/single_geometry_validation.h5",
     
     # --- Architecture --- #
     "mpnn_hidden_dim":  64,
@@ -23,12 +23,12 @@ final_config = {
 
     # --- Optimizer Settings --- #
     "lr":            5e-4,
-     "scheduler":               False,
+    "scheduler":               False,
     "scheduler_min_lr":        5e-6,
     "gradient_clip_max_norm":  1.0,
  
     # --- Training settings --- #
-    "epochs":                  300,
+    "epochs":                  200,
     "early_stop_patience":     50,
     "early_stop_min_delta":    1e-5,
     "train_batch_size":        256,
@@ -36,5 +36,5 @@ final_config = {
 
     # --- System --- #
     "seed":                    0,
-    "device":                  "cuda",
+    "device":                  "cuda:2",
 }
