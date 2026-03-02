@@ -5,7 +5,7 @@ final_config = {
     "node_in_dim":             6,
     "edge_in_dim":             6,
     "train_path":              "/mnt/data/zaid/projects/simulated_data/single_geometry_train.h5",
-    "val_path":                "/mnt/data/zaid/projects/simulated_data/single_geometry_validation.h5",
+    "val_path":                "/mnt/data/zaid/projects/simulated_data/single_geometry_val.h5",
     
     # --- Architecture --- #
     "mpnn_hidden_dim":  64,

@@ -5,7 +5,7 @@ from configs.final_config import final_config
 import torch
 from torch_geometric.loader import DataLoader as PyGDataLoader
 
-MODEL_PATH = '/mnt/data/zaid/projects/results/training/final_model.pth'
+MODEL_PATH = '/mnt/data/zaid/projects/results/training/best_model.pt'
 TEST_PATH = '/mnt/data/zaid/projects/simulated_data/multigeometry_test.h5'
 
 if __name__ == "__main__":
