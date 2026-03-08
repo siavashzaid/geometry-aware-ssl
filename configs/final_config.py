@@ -4,9 +4,9 @@ final_config = {
     "num_output_sources":      1,
     "node_in_dim":             6,
     "edge_in_dim":             6,
-    "train_path":              "/mnt/data/zaid/projects/simulated_data/single_geometry_train.h5",
-    "val_path":                "/mnt/data/zaid/projects/simulated_data/single_geometry_val.h5",
-    
+    "train_path":              "/mnt/data/zaid/projects/simulated_data/multigeometry_baseline/train.h5",
+    "val_path":                "/mnt/data/zaid/projects/simulated_data/multigeometry_baseline/val.h5",
+
     # --- Architecture --- #
     "mpnn_hidden_dim":  64,
     "mpnn_num_layers":  4,
@@ -36,5 +36,5 @@ final_config = {
 
     # --- System --- #
     "seed":                    0,
-    "device":                  "cuda:2",
+    "device":                  "cuda:0",
 }

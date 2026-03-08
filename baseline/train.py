@@ -8,22 +8,22 @@ from torch.utils.data import DataLoader
 from model import EigmodeTransformer
 from dataset import baselineDataset
 
-OUTPUT_DIR      = '/mnt/data/zaid/projects/results/multigeometry_training_baseline'
+OUTPUT_DIR      = '/mnt/data/zaid/projects/results/baseline_single_geometry'
 CHECKPOINT_PATH = os.path.join(OUTPUT_DIR, 'best_model.pt')
 
 config = {
-    "train_path":           "/mnt/data/zaid/projects/simulated_data/multi_geometry_train_baseline.h5",
-    "val_path":             "/mnt/data/zaid/projects/simulated_data/multi_geometry_val_baseline.h5",
+    "train_path":           "/mnt/data/zaid/projects/simulated_data/single_geometry/train.h5",
+    "val_path":             "/mnt/data/zaid/projects/simulated_data/single_geometry/val.h5",
     "nchannels":            64,
     "num_layers":           12,
-    "num_heads":            12,
+    "num_heads":            8,
     "dropout":              0.1,
-    "lr":                   5e-4,
-    "weight_decay":         1e-4,
+    "lr":                   2.5e-4,
+    "weight_decay":         1e-5,
     "batch_size":           256,
     "epochs":               200,
     "seed":                 0,
-    "device":               "cuda:0",
+    "device":               "cuda:1",
 }
 
 if __name__ == "__main__":
@@ -66,12 +66,18 @@ if __name__ == "__main__":
                 val_loss += (F.mse_loss(pred_loc, loc) + F.mse_loss(pred_str, strength)).item()
         val_loss /= len(val_loader)
 
-        print(f"Epoch {epoch:4d} | Train: {train_loss:.6f} | Val: {val_loss:.6f} | Best: {best_val_loss:.6f}")
-        history.append({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss})
-
         if val_loss < best_val_loss:
             best_val_loss, patience_counter = val_loss, 0
             torch.save(model.state_dict(), CHECKPOINT_PATH)
+        else:
+            patience_counter += 1
+        
+        print(f"Epoch {epoch:4d} | Train: {train_loss:.6f} | Val: {val_loss:.6f} | Best: {best_val_loss:.6f}")
+        history.append({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss})
+
+        if patience_counter == 50:
+            print(f"Early stopping at epoch {epoch} with best val loss {best_val_loss:.6f}")
+            break
 
     pd.DataFrame(history).to_csv(os.path.join(OUTPUT_DIR, "training_history.csv"), index=False)
     print(f"Done. Best val loss: {best_val_loss:.6f}")

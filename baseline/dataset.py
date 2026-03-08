@@ -33,7 +33,8 @@ class baselineDataset(Dataset):
 
             # --- compute eigenmodes ---
             eigvals, eigvecs = torch.linalg.eigh(csm) # (N,), (N, N)
-            eigmode = eigvals[None,:] * eigvecs # (N, N)
+            eigmode = eigvals * eigvecs # (N, N) columns are eigenmodes
+            eigmode = eigmode.T # (N, N) rows are eigenmodes
             eigmode = torch.cat((eigmode.real, eigmode.imag), dim=-1) # (N, 2N), float32
             
             # --- labels ---

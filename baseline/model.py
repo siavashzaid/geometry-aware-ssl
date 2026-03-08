@@ -7,16 +7,11 @@ import torch.nn as nn
 
 class ViTEncoderLayer(nn.Module):
 
-    def __init__(self, token_dim, num_heads=12, dropout=0.1):
+    def __init__(self, token_dim, num_heads=8, dropout=0.1):
         super().__init__()
-        attn_dim = num_heads * token_dim  #since keras does not have the divisibility requirement we need to project as well
-    
+        
         self.norm1 = nn.LayerNorm(token_dim, eps=1e-6)
-
-        self.input_proj  = nn.Linear(token_dim, attn_dim)
-        self.attn  = nn.MultiheadAttention(attn_dim, num_heads, dropout=dropout, batch_first=True)
-        self.output_proj = nn.Linear(attn_dim, token_dim)
-
+        self.attn  = nn.MultiheadAttention(token_dim, num_heads, dropout=dropout, batch_first=True)
         self.norm2 = nn.LayerNorm(token_dim, eps=1e-6)
         self.mlp   = nn.Sequential(
             nn.Linear(token_dim, token_dim * 2), nn.GELU(), nn.Dropout(dropout),
@@ -25,10 +20,8 @@ class ViTEncoderLayer(nn.Module):
 
     def forward(self, x):
         normed = self.norm1(x)
-        projection_in = self.input_proj(normed)  # [B, N, num_heads*token_dim]
-        attn_out, _ = self.attn(projection_in, projection_in, projection_in)  # [B, N, num_heads*token_dim]
-        projection_out = self.output_proj(attn_out)  # [B, N, token_dim]
-        x = x + projection_out
+        attn_out, _ = self.attn(normed, normed, normed)  # [B, N, token_dim]
+        x = x + attn_out
         normed = self.norm2(x)
         x = x + self.mlp(normed)
         return x
@@ -39,7 +32,7 @@ class EigmodeTransformer(nn.Module):
         self,
         nchannels    = 64,
         num_layers   = 12,
-        num_heads    = 12,
+        num_heads    = 8,
         dropout_rate = 0.1,
     ):
         super().__init__()
