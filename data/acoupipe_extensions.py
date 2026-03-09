@@ -216,6 +216,96 @@ def VogelHansen(min_num_mics, max_num_mics, generator):
 
     return xyz
 
+def random_grid(min_num_mics, max_num_mics, generator):
+    """
+    Generate a planar microphone array on a uniform rectangular grid with
+    independently sampled horizontal and vertical spacings and normalized
+    aperture. Every column and row contains the same number of microphones.
+
+    Parameters
+    ----------
+    min_num_mics : int
+        Minimum number of microphones to sample.
+    max_num_mics : int
+        Maximum number of microphones to sample.
+    generator : np.random.Generator
+        NumPy random number generator for reproducible sampling.
+
+    Returns
+    -------
+    np.ndarray
+        Microphone positions with shape (3, N), where N = rows × cols.
+    """
+    # --- sample grid dimensions until we find valid combination --- 
+    while True:
+        rows = generator.integers(2, int(np.sqrt(max_num_mics)) + 1)
+        cols_min = max(2, int(np.ceil(min_num_mics / rows)))
+        cols_max = int(np.floor(max_num_mics / rows))
+        if cols_max >= cols_min:
+            break
+    cols = generator.integers(cols_min, cols_max + 1)
+    n = rows * cols
+
+    # --- sample ratios ---
+    dx = 1.0
+    dy = generator.uniform(0.3, 3.0)
+
+    # --- build uniform rectangular grid ---
+    x = np.arange(cols) * dx
+    y = np.arange(rows) * dy
+    xx, yy = np.meshgrid(x, y)
+
+    # --- assemble planar coordinates ---
+    positions = np.column_stack((xx.ravel(), yy.ravel(), np.zeros(n)))
+
+    # --- center array at the origin ---
+    positions -= positions.mean(axis=0)
+
+    # --- normalize array aperture to 1 ---
+    positions /= np.max(pdist(positions))
+
+    # --- return in AcouPipe-compatible shape (3, N) ---
+    return positions.T
+
+def ring(min_num_mics, max_num_mics, generator):
+    """
+    Generate a planar microphone array placed on a single ring with uniform
+    angular spacing, a random rotational offset, and normalized aperture.
+
+    Parameters
+    ----------
+    min_num_mics : int
+        Minimum number of microphones to sample.
+    max_num_mics : int
+        Maximum number of microphones to sample.
+    generator : np.random.Generator
+        NumPy random number generator for reproducible sampling.
+
+    Returns
+    -------
+    np.ndarray
+        Microphone positions with shape (3, N), where N is the number of
+        microphones.
+    """
+    # --- sample number of microphones ---
+    n = generator.integers(min_num_mics, max_num_mics + 1)
+
+    # --- place microphones at uniformly spaced angles with random rotation ---
+    theta_0 = generator.uniform(0, 2 * np.pi)
+    theta = theta_0 + 2 * np.pi * np.arange(n) / n
+    x = 0.5 * np.cos(theta)
+    y = 0.5 * np.sin(theta)
+
+    # --- assemble planar coordinates ---
+    positions = np.column_stack((x, y, np.zeros(n)))
+
+    # --- center array at the origin and normalize array aperture to 1 (not reall needed theoretically) ---
+    positions -= positions.mean(axis=0)
+    positions /= np.max(pdist(positions))
+
+    # --- return in AcouPipe-compatible shape (3, N) ---
+    return positions.T
+
 def FixedVogelHansen(min_num_mics, max_num_mics, generator):
 
     #uniformly distribute H and M

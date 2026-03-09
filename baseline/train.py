@@ -14,7 +14,7 @@ CHECKPOINT_PATH = os.path.join(OUTPUT_DIR, 'best_model.pt')
 config = {
     "train_path":           "/mnt/data/zaid/projects/simulated_data/single_geometry/train.h5",
     "val_path":             "/mnt/data/zaid/projects/simulated_data/single_geometry/val.h5",
-    "nchannels":            64,
+    "nchannels":            64, #TODO CHANGE THIS
     "num_layers":           12,
     "num_heads":            8,
     "dropout":              0.1,
