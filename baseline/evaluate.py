@@ -11,11 +11,11 @@ sys.path.insert(0, os.path.dirname(__file__))
 from model import EigmodeTransformer
 from dataset import baselineDataset
 
-MODEL_PATH = '/mnt/data/zaid/projects/results/baseline_multigeometry/best_model.pt'
-TEST_PATH  = '/mnt/data/zaid/projects/simulated_data/randompos_test.h5'
-OUTPUT_DIR = '/mnt/data/zaid/projects/evaluation/baseline_multigeometry'
+MODEL_PATH = '/mnt/data/zaid/projects/training_results/baseline/multigeometry_64/best_model.pt'
+TEST_PATH  = '/mnt/data/zaid/projects/simulated_data/unseen/newSpiral64.h5'
+OUTPUT_DIR = '/mnt/data/zaid/projects/predictions/baseline/multigeometry_64'
 
-FILE_NAME = "test.csv"
+FILE_NAME = "predictions_newSpiral.csv"
 
 DEVICE = "cuda:2"
 

@@ -6,8 +6,12 @@ from torch_geometric.utils import dense_to_sparse
 import h5py
 
 class precomputedDataset(Dataset):
-    def __init__(self, h5_path):
+    def __init__(self, h5_path, node_feature_indices=None, edge_feature_indices=None):
         self.h5_path = h5_path
+
+        # --- optional: specify which features to use for nodes and edges for ablation studies ---
+        self.node_feature_indices = node_feature_indices
+        self.edge_feature_indices = edge_feature_indices
 
         with h5py.File(self.h5_path, "r") as f:
             self.keys = list(f.keys())
@@ -36,7 +40,6 @@ class precomputedDataset(Dataset):
             dists_to_center = torch.norm(coords[:, :2], dim=1) # find microphones closest to center for normalization
             ref_idx = torch.argmin(dists_to_center)
             csm = csm / csm[ref_idx, ref_idx].real
-
             source_strength = source_strength / source_strength.sum()
         
             # --- define node features --- 
@@ -77,6 +80,12 @@ class precomputedDataset(Dataset):
             node_feat = self.build_feature(x, y, r, cos_theta, sin_theta, autopower, dim=1) # (N, F_node)
             edge_attr = self.build_feature(cross_spectra_real,cross_spectra_imag, dist, unit_direction_x, unit_direction_y, cos_sim, dim=1)  # (E, F_edge)
 
+            # --- optional: select subset of features for ablation studies ---
+            if self.node_feature_indices is not None:
+                node_feat = node_feat[:, self.node_feature_indices]
+            if self.edge_feature_indices is not None:
+                edge_attr = edge_attr[:, self.edge_feature_indices]
+
             # ---  define eigmode tokens analog to Kujawaski et. al---
             eigmode = torch.cat([torch.cat([eigmode[..., 0], -eigmode[..., 1]], dim=-1), torch.cat([eigmode[..., 1],  eigmode[..., 0]], dim=-1),],dim=-2,)
 
@@ -85,14 +94,13 @@ class precomputedDataset(Dataset):
             loc_strongest_source = loc_strongest_source[:2].unsqueeze(0).unsqueeze(0) # [B,1,2]
             
             strength_strongest_source = source_strength[torch.argmax(source_strength)].unsqueeze(0).unsqueeze(0) # [B,1] 
-
+            
             # --- build PyG Data ---
             data = Data(
-                x=node_feat,                 # (N, F_node)
-                edge_index=edge_index,       # (2, E)
-                edge_attr=edge_attr,         # (E, F_edge)
-                #TODO: Change to multiple sources and strengths later on
-                y=loc_strongest_source,      # label used by training loop
+                x=node_feat,   # (N, F_node)
+                edge_index=edge_index, # (2, E)
+                edge_attr=edge_attr,    # (E, F_edge)
+                y=loc_strongest_source, # label used by training loop
             )
 
             data.strength = strength_strongest_source

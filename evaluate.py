@@ -8,11 +8,11 @@ from configs.final_config import final_config
 from src.training import build_model, evaluate_fn
 from src.datasets.precomputed_dataset import precomputedDataset
 
-MODEL_PATH  = '/mnt/data/zaid/projects/results/baseline_multigeometry/best_model.pt'
-TEST_PATH   = '/mnt/data/zaid/projects/simulated_data/randompos_test.h5'
-OUTPUT_DIR  = '/mnt/data/zaid/projects/evaluation/baseline_multigeometry'
+MODEL_PATH  = '/mnt/data/zaid/projects/training_results/main/multigeometry_64/best_model.pt'
+TEST_PATH   = '/mnt/data/zaid/projects/simulated_data/unseen/newSpiral64.h5'
+OUTPUT_DIR  = '/mnt/data/zaid/projects/predictions/main/multigeometry_64'
 
-FILE_NAME = "test_predictions_randpos.csv"
+FILE_NAME = "predictions_newSpiral.csv"
 
 DEVICE = "cuda:2"
 
@@ -51,6 +51,7 @@ def collect_predictions(model, loader, device):
                     "true_str":    true_str_np[i],
                     "loc_error":   loc_error[i],
                     "str_error":   abs(pred_str_np[i] - true_str_np[i]),
+                    "str_error_dB": 10 * np.abs(np.log10(pred_str_np[i] / true_str_np[i] + 1e-12))
                 })
 
     return pd.DataFrame(rows)

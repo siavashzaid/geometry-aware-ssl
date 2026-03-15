@@ -177,10 +177,9 @@ def VogelHansen(min_num_mics, max_num_mics, generator):
     M = generator.integers(min_num_mics, max_num_mics + 1) 
     H = generator.uniform(-1,4)
     
-
     r_max=0.5
-    V=5
-
+    V=6.5 #5 eigentlich
+ 
     def F(r):
         if H<0:
             return 1/special.iv(0,np.pi*H*np.sqrt(1+0j-r*r))
